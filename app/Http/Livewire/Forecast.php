@@ -6,6 +6,8 @@ use App\Traits\LocationTrait;
 use Illuminate\Support\Facades\Validator;
 use Livewire\Component;
 use App\Models\Weather;
+use App\Services\OpenWeather;
+use App\Services\Weather as WeatherAPI;
 
 class Forecast extends Component
 {
@@ -47,14 +49,21 @@ class Forecast extends Component
         $iso    = $country[0];
         $params = $this->inputs['city'] . ',' . $iso;
 
-        $results = $this->sendOpenWeatherRequest(urlencode($params));
-        $weather = $this->sendWeatherRequest(urlencode($this->inputs['city']));
+        $open_weather = new OpenWeather();
+        $weather      = new WeatherAPI();
 
-        if ( isset($results['main']['temp']) && isset($weather['current']['temp_c']) ) {
+        $open_weather->getForecastDetails($params);
+        $weather->getForecastDetails($this->inputs['city']);
 
-            $forecast_1 = $results['main']['temp'] - 273.15;
-            $forecast_2 = $weather['current']['temp_c'];
-            $this->avg  = ($forecast_1 + $forecast_2) / 2;
+        $x = $open_weather->getTemperature();
+        $y = $weather->getTemperature();
+
+        if ( $x && $y  ) {
+
+            $forecast_1 = $x;
+            $forecast_2 = $y;
+
+            $this->avg  = $this->calculate($forecast_1, $forecast_2);
 
             Weather::create([
                 'city'         => $this->inputs['city'],
@@ -66,6 +75,11 @@ class Forecast extends Component
         } else {
             $this->avg = "Sorry, we couldn't find what you are looking for. Please try again.";
         }
+    }
+
+    public function calculate($x, $y)
+    {
+        return ($x + $y) / 2;
     }
 
     public function render()
